@@ -7,19 +7,18 @@ const AppError = require('../utils/appError');
 const signToken = require('../utils/signToken');
 const Email = require('../utils/email');
 
-const createAndSendToken = (status, message, user, res) => {
-  const cookieOptions = {
-    expires: new Date(
-      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
-    ),
-    httpOnly: true,
-  };
-
+const createAndSendToken = (status, message, user, req, res) => {
   const token = signToken(user._id);
 
   if (process.env.NODE_ENV === 'production') cookieOptions.secure = true;
 
-  res.cookie('jwt', token, cookieOptions);
+  res.cookie('jwt', token, {
+    expires: new Date(
+      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+    ),
+    httpOnly: true,
+    secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
+  });
   user.password = undefined;
   res.status(status).json({
     status: 'success',
@@ -40,7 +39,7 @@ exports.signup = catchAsync(async (req, res, next) => {
   });
   const url = `${req.protocol}://${req.get('host')}/me`;
   await new Email(newUser, url).sendWelcome();
-  createAndSendToken(201, 'user account created successfully!', newUser, res);
+  createAndSendToken(201, 'user account created successfully!', newUser, req, res);
 });
 
 exports.login = async (req, res, next) => {
@@ -53,7 +52,7 @@ exports.login = async (req, res, next) => {
   if (!user || !(await user.verifyPassword(password, user.password))) {
     return next(new AppError('invalid email or password.', 401));
   }
-  createAndSendToken(200, 'logged in successfully.', user, res);
+  createAndSendToken(200, 'logged in successfully.', user, req, res);
 };
 
 exports.forgotPassword = catchAsync(async (req, res, next) => {
@@ -103,7 +102,7 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
   await user.save();
-  createAndSendToken(200, 'password changed successfully!', user, res);
+  createAndSendToken(200, 'password changed successfully!', user, req, res);
 });
 
 exports.updatePassword = catchAsync(async (req, res, next) => {
@@ -127,7 +126,7 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
   user.passwordConfirm = req.body.passwordConfirm;
   await user.save();
 
-  createAndSendToken(200, 'password updated successfully!', user, res);
+  createAndSendToken(200, 'password updated successfully!', user, req, res);
 });
 
 /****** VIEWS CONTROLLERS HERE ******/

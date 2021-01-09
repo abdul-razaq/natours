@@ -42,3 +42,4 @@ exports.getAllBookings = handlerFactory.getAll(Booking);
 exports.updateBooking = handlerFactory.updateOne(Booking);
 
 exports.deleteBooking = handlerFactory.deleteOne(Booking);
+C
